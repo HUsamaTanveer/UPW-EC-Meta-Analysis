@@ -1,0 +1,112 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib.patches as patches
+
+# Load the data with the correct references from your 10 PFAS studies
+data = pd.DataFrame({
+    'author': ['Tang et al. (2006)', 'Steinle-Darling & Reinhard (2008)', 
+              'Appleman et al. (2013)', 'Boo et al. (2018)', 
+              'Liu et al. (2021a)', 'Liu et al. (2021b)', 
+              'Das & Ronen (2022)', 'Liu et al. (2022)', 
+              'Safulko et al. (2023)', 'Griffin et al. (2024)', 
+              'Pooled Estimate'],
+    'effect': [2.95, 2.82, 2.73, 2.88, 2.76, 2.81, 2.70, 2.76, 2.85, 2.86, 2.78],
+    'ci_lower': [2.85, 2.69, 2.58, 2.75, 2.61, 2.68, 2.55, 2.61, 2.75, 2.73, 2.54],
+    'ci_upper': [3.05, 2.95, 2.88, 3.01, 2.91, 2.94, 2.85, 2.91, 2.95, 2.99, 3.02],
+    'weight': [5.0, 4.9, 4.5, 5.1, 4.6, 4.9, 4.5, 4.8, 5.2, 5.3, 51.2]
+})
+
+# Reverse the order for bottom-to-top plotting
+data = data.iloc[::-1].reset_index(drop=True)
+
+# Create a new figure with explicit background color
+fig, ax = plt.subplots(figsize=(10, 8), dpi=600, facecolor='white')
+ax.set_facecolor('white')
+
+# Determine the x-axis limits with some padding
+min_x = 2.4
+max_x = 3.1
+
+# Plot confidence intervals
+for i, row in data.iterrows():
+    if row['author'] != 'Pooled Estimate':
+        ax.plot([row['ci_lower'], row['ci_upper']], [i, i], 
+                 color='#1976D2', linewidth=2)
+        
+        # End caps for confidence intervals
+        ax.plot([row['ci_lower'], row['ci_lower']], [i-0.1, i+0.1], 
+                 color='#1976D2', linewidth=2)
+        ax.plot([row['ci_upper'], row['ci_upper']], [i-0.1, i+0.1], 
+                 color='#1976D2', linewidth=2)
+        
+        # Study effect as square with size proportional to weight
+        size = row['weight'] * 50  # Adjusted multiplier for better visibility
+        ax.scatter(row['effect'], i, s=size, marker='s', color='#64B5F6', 
+                    edgecolor='#1565C0', zorder=3, linewidth=1.5)
+
+# Add a vertical dashed line at the pooled estimate value
+pooled_value = data.loc[data['author'] == 'Pooled Estimate', 'effect'].values[0]
+ax.axvline(x=pooled_value, color='#0D47A1', linestyle='--', alpha=0.7)
+
+# Plot the pooled estimate as a diamond
+pooled_idx = data.index[data['author'] == 'Pooled Estimate'].tolist()[0]
+pooled_row = data.loc[pooled_idx]
+
+# Create diamond for pooled estimate
+diamond_height = 0.5
+diamond_x = [pooled_row['effect'], pooled_row['ci_upper'], pooled_row['effect'], pooled_row['ci_lower']]
+diamond_y = [pooled_idx - diamond_height/2, pooled_idx, pooled_idx + diamond_height/2, pooled_idx]
+ax.fill(diamond_x, diamond_y, color='#0D47A1', edgecolor='black', zorder=3)
+
+# Add study names on the y-axis
+ax.set_yticks(range(len(data)))
+ax.set_yticklabels(data['author'], fontsize=11)
+
+# Set x-axis limits and labels
+ax.set_xlim(min_x, max_x)
+ax.set_xlabel('Log Rejection Value (log₁₀(1/(1-R/100)))', fontsize=12, fontweight='bold')
+
+# Add specific tick marks for the log rejection scale with % equivalents
+log_ticks = [2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3.0, 3.1]
+ax.set_xticks(log_ticks)
+
+# Add secondary x-axis with rejection percentage
+ax2 = ax.twiny()
+ax2.set_xlim(min_x, max_x)
+ax2.set_xticks(log_ticks)
+rejection_pct = [99.6, 99.68, 99.75, 99.8, 99.84, 99.87, 99.9, 99.92]  # Calculated as (1-10^(-x))*100
+ax2.set_xticklabels([f"{p:.2f}%" for p in rejection_pct])
+ax2.set_xlabel('Rejection Percentage (%)', fontsize=12, fontweight='bold')
+
+# Add title
+ax.set_title('Fig. 2. Forest Plot: Long-Chain PFAS Rejection by RO Membranes', fontsize=14, fontweight='bold')
+
+# Add a legend with clearer labels
+individual_patch = patches.Patch(facecolor='#64B5F6', edgecolor='#1565C0', label='Individual Study')
+pooled_patch = patches.Patch(facecolor='#0D47A1', edgecolor='black', label='Pooled Estimate')
+pooled_line = plt.Line2D([0], [0], color='#0D47A1', linestyle='--', label='Pooled Estimate Value')
+
+ax.legend(handles=[individual_patch, pooled_patch, pooled_line], 
+           loc='lower right', fontsize=10, frameon=True, framealpha=0.9)
+
+# Add grid for better readability
+ax.grid(axis='x', linestyle='--', alpha=0.3)
+
+# Add I² statistic and heterogeneity information
+ax.text(min_x + 0.05, 0.5, f"Heterogeneity: I² = 45.7%, p = 0.01", fontsize=10)
+
+# Add extra space at the bottom to avoid overlap with x-axis labels
+plt.tight_layout()
+
+# Save the figure in multiple high-quality formats with explicit background color
+plt.savefig('forest_plot_longchain_pfas.png', dpi=600, bbox_inches='tight', facecolor='white')
+plt.savefig('forest_plot_longchain_pfas.pdf', bbox_inches='tight', facecolor='white')
+plt.savefig('forest_plot_longchain_pfas.tiff', dpi=600, bbox_inches='tight', facecolor='white')
+
+# Make sure the plot renders before saving
+plt.draw()
+
+# Close the figure to release memory
+plt.close(fig)
+
