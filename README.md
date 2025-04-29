@@ -31,17 +31,8 @@ UPW-EC-Meta-Analysis/
     ├── 2_meta_analysis/      # Meta-analysis scripts
     │   ├── 01_pooled_estimates.py
     │   ├── 02_heterogeneity.py
-    │   ├── 03_subgroup_analysis.py
+    │   ├── 03_meta_regression.py
     │   └── 04_publication_bias.py
-    │
-    ├── 3_meta_regression/    # Meta-regression scripts
-    │   ├── 01_simple_meta_regression.py
-    │   ├── 02_multiple_meta_regression.py
-    │   └── 03_model_selection.py
-    │
-    ├── 4_sensitivity/        # Sensitivity analysis scripts
-    │   ├── 01_leave_one_out.py
-    │   └── 02_quality_stratified.py
     │
     └── 5_visualization/      # Visualization scripts
         ├── 01_forest_plots.py
@@ -53,11 +44,10 @@ UPW-EC-Meta-Analysis/
 ## Setup
 
 1. Install required packages: pip install -r requirements.txt
+
 2. The data analysis workflow follows these steps:
    - Data preprocessing (code/1_data_preprocessing/)
-   - Meta-analysis (code/2_meta_analysis/)
-   - Meta-regression (code/3_meta_regression/)
-   - Sensitivity analysis (code/4_sensitivity/)
+   - Meta-analysis and meta-regression (code/2_meta_analysis/)
    - Visualization (code/5_visualization/)
 
 
