@@ -1,0 +1,114 @@
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
+# Create a new figure with explicit background color
+fig, ax = plt.subplots(figsize=(10, 8), dpi=600, facecolor='white')
+ax.set_facecolor('white')
+
+# Define the factors and their impact ranges (negative and positive variations)
+factors = [
+    'Energy Cost',
+    'Membrane Replacement Frequency',
+    'Chemical Cleaning Requirements', 
+    'Feed Water Quality Variations',
+    'PFAS Concentration',
+    'Regulatory Compliance Costs',
+    'Recovery Rate',
+    'Pretreatment Effectiveness',
+    'Concentrate Disposal'
+]
+
+# Define the baseline cost and the impact ranges (% change)
+baseline = 100  # Baseline cost (100%)
+
+# Data from the paper showing sensitivity of OPEX
+# Format: (negative impact, positive impact)
+impacts = [
+    (-30, 40),    # Energy Cost
+    (-15, 25),    # Membrane Replacement
+    (-10, 22),    # Chemical Cleaning
+    (-8, 18),     # Feed Water Quality
+    (-5, 15),     # PFAS Concentration
+    (-2, 12),     # Regulatory Compliance
+    (-12, 5),     # Recovery Rate
+    (-10, 3),     # Pretreatment Effectiveness
+    (-2, 8)       # Concentrate Disposal
+]
+
+# Sort the factors by maximum absolute impact
+sorted_indices = np.argsort([max(abs(neg), abs(pos)) for neg, pos in impacts])[::-1]
+factors = [factors[i] for i in sorted_indices]
+impacts = [impacts[i] for i in sorted_indices]
+
+# Extract the negative and positive impacts
+neg_impacts = [impact[0] for impact in impacts]
+pos_impacts = [impact[1] for impact in impacts]
+
+# Create the horizontal bar chart
+y_pos = np.arange(len(factors))
+ax.barh(y_pos, pos_impacts, height=0.6, color='#4CAF50', alpha=0.7, label='Cost Increase')
+ax.barh(y_pos, neg_impacts, height=0.6, color='#F44336', alpha=0.7, label='Cost Decrease')
+
+# Add factor labels
+ax.set_yticks(y_pos)
+ax.set_yticklabels(factors, fontsize=10, fontweight='bold')
+
+# Add a vertical line at zero
+ax.axvline(x=0, color='black', linestyle='-', linewidth=1)
+
+# Add value labels to the end of each bar
+for i, (neg, pos) in enumerate(zip(neg_impacts, pos_impacts)):
+    # Negative impact label
+    ax.text(neg - 2, i, f"{neg}%", va='center', ha='right', 
+            color='white', fontweight='bold', fontsize=9)
+    # Positive impact label
+    ax.text(pos + 2, i, f"+{pos}%", va='center', ha='left', 
+            color='white', fontweight='bold', fontsize=9)
+
+# Add reference boxes for key treatment strategies
+props = dict(boxstyle='round,pad=0.5', facecolor='#E3F2FD', alpha=0.9, edgecolor='#1976D2')
+ax.text(30, 1.5, "Tight NF membranes can reduce energy costs by\n30-40% compared to RO for long-chain PFAS removal", 
+      fontsize=9, bbox=props, ha='center')
+
+props2 = dict(boxstyle='round,pad=0.5', facecolor='#FFF9C4', alpha=0.9, edgecolor='#FFC107')
+ax.text(-25, 6.5, "Optimized pretreatment can reduce\nmembrane fouling and chemical costs", 
+      fontsize=9, bbox=props2, ha='center')
+
+# Add membrane life impact for CMP organics
+props3 = dict(boxstyle='round,pad=0.5', facecolor='#FFEBEE', alpha=0.9, edgecolor='#D32F2F')
+ax.text(20, 3.5, "CMP/lithography organics increase OPEX\nby 15-25% due to membrane fouling", 
+      fontsize=9, bbox=props3, ha='center')
+
+# Set axis labels and title
+ax.set_xlabel('Percent Change in Treatment Cost', fontsize=12, fontweight='bold')
+ax.set_title('Fig. 6. Sensitivity Analysis: Impact of Factors on UPW Treatment Costs', 
+             fontsize=14, fontweight='bold')
+
+# Customize the x-axis
+ax.set_xlim(-35, 45)
+ax.grid(axis='x', linestyle='--', alpha=0.3)
+
+# Add reference line for EPA PFAS Rule impact
+ax.axhline(y=4.5, xmin=0.5, xmax=0.65, color='#1976D2', linestyle='--', linewidth=2)
+props4 = dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.9, edgecolor='gray')
+ax.text(37, 4.5, "Impact of 2025\nEPA PFAS Rule", fontsize=9, bbox=props4, ha='center')
+
+# Add a legend
+ax.legend(loc='lower right', frameon=True, framealpha=0.9)
+
+# Ensure tight layout
+plt.tight_layout()
+plt.subplots_adjust(bottom=0.07, right=0.95)
+
+# Save the figure in multiple high-quality formats
+plt.savefig('tornado_diagram_treatment_costs.png', dpi=600, bbox_inches='tight', facecolor='white')
+plt.savefig('tornado_diagram_treatment_costs.pdf', bbox_inches='tight', facecolor='white')
+plt.savefig('tornado_diagram_treatment_costs.tiff', dpi=600, bbox_inches='tight', facecolor='white')
+
+# Make sure the plot renders before saving
+plt.draw()
+
+# Close the figure to release memory
+plt.close(fig)
+
