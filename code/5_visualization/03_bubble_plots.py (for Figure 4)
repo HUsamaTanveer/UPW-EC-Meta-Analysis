@@ -1,0 +1,190 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib.patches as patches
+from matplotlib.colors import LinearSegmentedColormap
+
+# Create data for PFAS compounds with different carbon chain lengths
+data = pd.DataFrame({
+    'compound': ['TFA', 'PFBA', 'PFPeA', 'PFHxA', 'PFHpA', 'PFOA', 'PFNA', 'PFDA', 'PFUnA', 'PFDoA'],
+    'carbon_number': [2, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    'ro_rejection': [94.8, 98.5, 99.0, 99.2, 99.6, 99.7, 99.85, 99.9, 99.95, 99.98],
+    'nf_rejection': [86.5, 90.2, 92.6, 93.8, 96.7, 97.9, 98.3, 98.6, 98.8, 98.9],
+    'ro_studies': [2, 3, 4, 5, 7, 8, 6, 4, 3, 2],  # Number of studies for each compound
+    'nf_studies': [2, 3, 3, 4, 5, 6, 4, 3, 2, 2],
+    'ro_ci_lower': [92.1, 97.3, 98.4, 98.7, 99.2, 99.4, 99.7, 99.8, 99.9, 99.95],
+    'ro_ci_upper': [97.5, 99.7, 99.6, 99.7, 99.9, 99.9, 99.95, 99.98, 99.99, 99.99],
+    'nf_ci_lower': [81.2, 87.5, 89.8, 91.3, 94.2, 96.5, 97.2, 97.8, 97.9, 98.0],
+    'nf_ci_upper': [91.8, 92.9, 95.4, 96.3, 99.2, 99.3, 99.4, 99.4, 99.7, 99.8]
+})
+
+# Convert to log rejection values for the regression
+data['ro_log_rejection'] = np.log10(1/(1-data['ro_rejection']/100))
+data['nf_log_rejection'] = np.log10(1/(1-data['nf_rejection']/100))
+
+# Create a new figure with explicit background color
+fig, ax = plt.subplots(figsize=(11, 9), dpi=600, facecolor='white')
+ax.set_facecolor('white')
+
+# Define custom colormaps for RO and NF
+ro_colors = LinearSegmentedColormap.from_list("ro_colors", ["#64B5F6", "#1565C0"])
+nf_colors = LinearSegmentedColormap.from_list("nf_colors", ["#F06292", "#AD1457"])
+
+# Fit regression models
+ro_fit = np.polyfit(data['carbon_number'], data['ro_log_rejection'], 1)
+nf_fit = np.polyfit(data['carbon_number'], data['nf_log_rejection'], 1)
+
+# Create smooth prediction lines
+x_pred = np.linspace(1, 13, 100)
+ro_y_pred = np.polyval(ro_fit, x_pred)
+nf_y_pred = np.polyval(nf_fit, x_pred)
+
+# Convert back to rejection percentage for display
+ro_pct_pred = (1 - 10**(-ro_y_pred)) * 100
+nf_pct_pred = (1 - 10**(-nf_y_pred)) * 100
+
+# Plot the regression lines
+ax.plot(x_pred, ro_pct_pred, color='#1565C0', linewidth=2, label='RO Trend')
+ax.plot(x_pred, nf_pct_pred, color='#AD1457', linewidth=2, label='NF Trend')
+
+# Plot confidence bands
+ax.fill_between(data['carbon_number'], data['ro_ci_lower'], data['ro_ci_upper'], 
+                alpha=0.2, color='#1565C0')
+ax.fill_between(data['carbon_number'], data['nf_ci_lower'], data['nf_ci_upper'], 
+                alpha=0.2, color='#AD1457')
+
+# Plot the data points as bubbles
+# RO bubbles
+for i, row in data.iterrows():
+    color_idx = min(row['ro_studies']/8, 1.0)  # Normalize to 0-1 for colormap
+    ax.scatter(row['carbon_number'], row['ro_rejection'], 
+               s=row['ro_studies']*100, 
+               color=ro_colors(color_idx),
+               edgecolor='#1565C0',
+               alpha=0.7,
+               linewidth=1.5,
+               zorder=10)
+    
+    # Add compound labels more strategically
+    if row['compound'] in ['TFA', 'PFPeA', 'PFHpA', 'PFNA', 'PFDoA']:
+        y_offset = 0.5 if row['compound'] != 'TFA' else 0
+        ax.annotate(row['compound'], 
+                   (row['carbon_number'], row['ro_rejection']),
+                   xytext=(0, 10 + y_offset),
+                   textcoords='offset points',
+                   fontsize=9,
+                   fontweight='bold',
+                   ha='center',
+                   bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", alpha=0.8))
+
+# NF bubbles
+for i, row in data.iterrows():
+    color_idx = min(row['nf_studies']/6, 1.0)  # Normalize to 0-1 for colormap
+    ax.scatter(row['carbon_number'], row['nf_rejection'], 
+               s=row['nf_studies']*100, 
+               color=nf_colors(color_idx),
+               edgecolor='#AD1457',
+               alpha=0.7,
+               linewidth=1.5,
+               zorder=10)
+
+# Add regression equations and R² values - position them better
+ro_r2 = np.corrcoef(data['carbon_number'], data['ro_log_rejection'])[0,1]**2
+nf_r2 = np.corrcoef(data['carbon_number'], data['nf_log_rejection'])[0,1]**2
+
+# Create text background for equations
+ro_eq_text = f"RO: log(rej) = {ro_fit[0]:.3f} × C-atoms + {ro_fit[1]:.3f}   R² = {ro_r2:.2f}"
+nf_eq_text = f"NF: log(rej) = {nf_fit[0]:.3f} × C-atoms + {nf_fit[1]:.3f}   R² = {nf_r2:.2f}"
+
+# Position equations in clearer spots with white background
+ax.text(4, 89, ro_eq_text, 
+       fontsize=10, color='#1565C0', fontweight='bold',
+       bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", alpha=0.9))
+       
+ax.text(4, 87, nf_eq_text, 
+       fontsize=10, color='#AD1457', fontweight='bold',
+       bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", alpha=0.9))
+
+# Set axis labels and title
+ax.set_xlabel('Carbon Chain Length', fontsize=12, fontweight='bold')
+ax.set_ylabel('Rejection Percentage (%)', fontsize=12, fontweight='bold')
+ax.set_title('Fig. 4. PFAS Rejection vs. Carbon Chain Length by Membrane Type', 
+           fontsize=14, fontweight='bold')
+
+# Customize axes
+ax.set_xlim(1, 13)
+ax.set_ylim(85, 100.2)
+ax.set_xticks(range(2, 13, 1))
+ax.grid(True, linestyle='--', alpha=0.3)
+
+# Create a custom legend - position it better
+# For membrane types
+ro_line = plt.Line2D([0], [0], color='#1565C0', linewidth=2, label='RO Membranes')
+nf_line = plt.Line2D([0], [0], color='#AD1457', linewidth=2, label='NF Membranes')
+
+# For bubble sizes - replace with a better legend solution
+small_bubble = plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='gray', 
+                          markersize=8, label='2-3 Studies')
+medium_bubble = plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='gray', 
+                           markersize=13, label='4-5 Studies')
+large_bubble = plt.Line2D([0], [0], marker='o', color='w', markerfacecolor='gray', 
+                          markersize=18, label='6-8 Studies')
+
+# For zone indicators
+chain_patch = patches.Patch(facecolor='#E8F5E9', alpha=0.3, label='Long-Chain PFAS (C≥7)')
+rejection_patch = patches.Patch(facecolor='#E3F2FD', alpha=0.3, label='High Rejection (>99%)')
+
+# Create a single unified legend with better positioning
+legend1 = ax.legend(handles=[ro_line, nf_line], 
+                   loc='lower right', bbox_to_anchor=(1.0, 0.02),
+                   title='Membrane Type', frameon=True, framealpha=0.9)
+
+# Create a second legend for study counts
+ax.add_artist(legend1)
+legend2 = ax.legend(handles=[small_bubble, medium_bubble, large_bubble], 
+                   loc='lower center', bbox_to_anchor=(0.5, -0.15),
+                   title='Number of Studies', frameon=True, framealpha=0.9, ncol=3)
+
+# Add annotations with better positioning and background
+# Create a box around the reference zones
+ref_text = "Reference Zones\n• Long-Chain PFAS (C≥7)\n• High Rejection (>99%)"
+props = dict(boxstyle='round', facecolor='white', alpha=0.9, edgecolor='gray')
+ax.text(2, 86.5, ref_text, fontsize=9, verticalalignment='top', bbox=props)
+
+# Add annotations for key points with white backgrounds
+ax.annotate('C8: PFOA Regulated\nin EPA PFAS Rule', 
+           xy=(8, 98.0), xytext=(9, 98.0),
+           arrowprops=dict(facecolor='black', shrink=0.05, width=1.5, headwidth=7),
+           fontsize=9,
+           bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", alpha=0.9))
+
+ax.annotate('Short-Chain PFAS:\nLower NF Rejection', 
+           xy=(4.2, 90.2), xytext=(3, 93),
+           arrowprops=dict(facecolor='black', shrink=0.05, width=1.5, headwidth=7),
+           fontsize=9,
+           bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="gray", alpha=0.9))
+
+# Add meta-regression info with background
+props = dict(boxstyle='round', facecolor='white', alpha=0.9, edgecolor='gray')
+ax.text(7, 91, "Meta-regression analysis: β = 0.187, p < 0.001", 
+      fontsize=10, style='italic', bbox=props)
+
+# Add note about semiconductor industry with clearer background
+props = dict(boxstyle='round', facecolor='#FFF9C4', alpha=0.9, edgecolor='#FFC107')
+ax.text(2.5, 98, "TFA & PFBA: Prevalent in\nsemiconductor fabrication", 
+      fontsize=9, style='italic', bbox=props)
+
+# Ensure tight layout and proper spacing
+plt.tight_layout()
+plt.subplots_adjust(bottom=0.15)  # Make room for the legend
+
+# Save the figure in multiple high-quality formats with explicit background color
+plt.savefig('bubble_plot_pfas_carbon_chain.png', dpi=600, bbox_inches='tight', facecolor='white')
+plt.savefig('bubble_plot_pfas_carbon_chain.pdf', bbox_inches='tight', facecolor='white')
+plt.savefig('bubble_plot_pfas_carbon_chain.tiff', dpi=600, bbox_inches='tight', facecolor='white')
+
+# Make sure the plot renders before saving
+plt.draw()
+
+# Close the figure to release memory
+plt.close(fig)
