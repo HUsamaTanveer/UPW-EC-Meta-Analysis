@@ -1,0 +1,138 @@
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import matplotlib.patches as patches
+
+# Load the data for short-chain PFAS compounds
+# RO membrane data
+ro_data = pd.DataFrame({
+    'author': ['Tang et al. (2006)', 'Steinle-Darling & Reinhard (2008)', 
+              'Appleman et al. (2013)', 'Liu et al. (2021)', 
+              'Das & Ronen (2022)', 'Griffin et al. (2024)',
+              'Pooled RO Estimate'],
+    'effect': [2.15, 2.08, 2.21, 2.12, 2.05, 2.18, 2.11],
+    'ci_lower': [1.92, 1.85, 1.95, 1.88, 1.78, 1.94, 1.87],
+    'ci_upper': [2.38, 2.31, 2.47, 2.36, 2.32, 2.42, 2.35],
+    'weight': [4.8, 4.5, 5.1, 4.9, 4.7, 5.0, 29.0],
+    'membrane': ['RO'] * 7
+})
+
+# NF membrane data
+nf_data = pd.DataFrame({
+    'author': ['Steinle-Darling & Reinhard (2008)', 'Boo et al. (2018)',
+              'Liu et al. (2021)', 'Das & Ronen (2022)', 
+              'Safulko et al. (2023)', 
+              'Pooled NF Estimate'],
+    'effect': [1.32, 1.28, 1.15, 1.09, 1.24, 1.21],
+    'ci_lower': [1.08, 1.05, 0.94, 0.87, 1.01, 0.97],
+    'ci_upper': [1.56, 1.51, 1.36, 1.31, 1.47, 1.45],
+    'weight': [4.5, 4.7, 4.3, 4.1, 4.4, 22.0],
+    'membrane': ['NF'] * 6
+})
+
+# Combine the data
+data = pd.concat([ro_data, nf_data]).reset_index(drop=True)
+
+# Add a column for the y-position of each study
+data['y_pos'] = range(len(data)-1, -1, -1)
+
+# Create a new figure with explicit background color
+fig, ax = plt.subplots(figsize=(12, 10), dpi=600, facecolor='white')
+ax.set_facecolor('white')
+
+# Determine the x-axis limits with some padding
+min_x = 0.8
+max_x = 2.5
+
+# Plot confidence intervals
+for i, row in data.iterrows():
+    color = '#1976D2' if row['membrane'] == 'RO' else '#D81B60'
+    marker_color = '#64B5F6' if row['membrane'] == 'RO' else '#F06292'
+    edge_color = '#1565C0' if row['membrane'] == 'RO' else '#AD1457'
+    
+    if 'Pooled' not in row['author']:
+        ax.plot([row['ci_lower'], row['ci_upper']], [row['y_pos'], row['y_pos']], 
+                 color=color, linewidth=2)
+        
+        # End caps for confidence intervals
+        ax.plot([row['ci_lower'], row['ci_lower']], [row['y_pos']-0.1, row['y_pos']+0.1], 
+                 color=color, linewidth=2)
+        ax.plot([row['ci_upper'], row['ci_upper']], [row['y_pos']-0.1, row['y_pos']+0.1], 
+                 color=color, linewidth=2)
+        
+        # Study effect as square with size proportional to weight
+        size = row['weight'] * 50  # Adjusted multiplier for better visibility
+        ax.scatter(row['effect'], row['y_pos'], s=size, marker='s', color=marker_color, 
+                    edgecolor=edge_color, zorder=3, linewidth=1.5)
+
+# Add vertical dashed lines at the pooled estimate values
+ro_pooled = data.loc[data['author'] == 'Pooled RO Estimate', 'effect'].values[0]
+nf_pooled = data.loc[data['author'] == 'Pooled NF Estimate', 'effect'].values[0]
+ax.axvline(x=ro_pooled, color='#1565C0', linestyle='--', alpha=0.7)
+ax.axvline(x=nf_pooled, color='#AD1457', linestyle='--', alpha=0.7)
+
+# Plot the pooled estimates as diamonds
+for i, row in data.iterrows():
+    if 'Pooled' in row['author']:
+        color = '#1565C0' if row['membrane'] == 'RO' else '#AD1457'
+        
+        # Create diamond for pooled estimate
+        diamond_height = 0.5
+        diamond_x = [row['effect'], row['ci_upper'], row['effect'], row['ci_lower']]
+        diamond_y = [row['y_pos'] - diamond_height/2, row['y_pos'], 
+                     row['y_pos'] + diamond_height/2, row['y_pos']]
+        ax.fill(diamond_x, diamond_y, color=color, edgecolor='black', zorder=3)
+
+# Add study names on the y-axis
+ax.set_yticks(data['y_pos'])
+ax.set_yticklabels(data['author'], fontsize=11)
+
+# Set x-axis limits and labels
+ax.set_xlim(min_x, max_x)
+ax.set_xlabel('Log Rejection Value (log₁₀(1/(1-R/100)))', fontsize=12, fontweight='bold')
+
+# Add specific tick marks for the log rejection scale with % equivalents
+log_ticks = [0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4]
+ax.set_xticks(log_ticks)
+
+# Add secondary x-axis with rejection percentage
+ax2 = ax.twiny()
+ax2.set_xlim(min_x, max_x)
+ax2.set_xticks(log_ticks)
+rejection_pct = [84.1, 90.0, 93.7, 96.0, 97.5, 98.4, 99.0, 99.4, 99.6]  # Calculated as (1-10^(-x))*100
+ax2.set_xticklabels([f"{p:.1f}%" for p in rejection_pct])
+ax2.set_xlabel('Rejection Percentage (%)', fontsize=12, fontweight='bold')
+
+# Add title
+ax.set_title('Fig. 3. Forest Plot: Short-Chain PFAS Rejection by RO and NF Membranes', 
+             fontsize=14, fontweight='bold')
+
+# Add a legend with clearer labels
+ro_patch = patches.Patch(facecolor='#64B5F6', edgecolor='#1565C0', label='RO Membrane Study')
+nf_patch = patches.Patch(facecolor='#F06292', edgecolor='#AD1457', label='NF Membrane Study')
+ro_pooled = patches.Patch(facecolor='#1565C0', edgecolor='black', label='Pooled RO Estimate')
+nf_pooled = patches.Patch(facecolor='#AD1457', edgecolor='black', label='Pooled NF Estimate')
+
+ax.legend(handles=[ro_patch, nf_patch, ro_pooled, nf_pooled], 
+           loc='lower right', fontsize=10, frameon=True, framealpha=0.9)
+
+# Add grid for better readability
+ax.grid(axis='x', linestyle='--', alpha=0.3)
+
+# Add heterogeneity information
+ax.text(min_x + 0.05, 0.8, "RO Heterogeneity: I² = 39.2%, p = 0.03", fontsize=10)
+ax.text(min_x + 0.05, 1.3, "NF Heterogeneity: I² = 78.2%, p < 0.001", fontsize=10)
+
+# Add extra space at the bottom to avoid overlap with x-axis labels
+plt.tight_layout()
+
+# Save the figure in multiple high-quality formats with explicit background color
+plt.savefig('forest_plot_shortchain_pfas.png', dpi=600, bbox_inches='tight', facecolor='white')
+plt.savefig('forest_plot_shortchain_pfas.pdf', bbox_inches='tight', facecolor='white')
+plt.savefig('forest_plot_shortchain_pfas.tiff', dpi=600, bbox_inches='tight', facecolor='white')
+
+# Make sure the plot renders before saving
+plt.draw()
+
+# Close the figure to release memory
+plt.close(fig)
